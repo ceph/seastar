@@ -315,11 +315,19 @@ posix_ap_server_socket_impl<Transport>::move_connected_socket(socket_address sa,
     }
 }
 
+static constexpr size_t min_buf_size = 1 << 9;
+static constexpr size_t max_buf_size = 1 << 19;
+
 future<temporary_buffer<char>>
 posix_data_source_impl::get() {
     return _fd->read_some(_buf.get_write(), _buf_size).then([this] (size_t size) {
         _buf.trim(size);
         auto ret = std::move(_buf);
+        if (_buf_size == size) {
+          _buf_size = std::min(max_buf_size, _buf_size << 2);
+        } else if (size < (_buf_size >> 2)) {
+          _buf_size = std::max(min_buf_size, _buf_size >> 2);
+        }
         _buf = make_temporary_buffer<char>(_buffer_allocator, _buf_size);
         return make_ready_future<temporary_buffer<char>>(std::move(ret));
     });

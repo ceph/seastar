@@ -109,7 +109,7 @@ class posix_data_source_impl final : public data_source_impl {
     size_t _buf_size;
 public:
     explicit posix_data_source_impl(lw_shared_ptr<pollable_fd> fd, compat::polymorphic_allocator<char>* allocator=memory::malloc_allocator,
-        size_t buf_size = 8192) : _buffer_allocator(allocator), _fd(std::move(fd)),
+        size_t buf_size = 1 << 13) : _buffer_allocator(allocator), _fd(std::move(fd)),
         _buf(make_temporary_buffer<char>(_buffer_allocator, buf_size)), _buf_size(buf_size) {}
     future<temporary_buffer<char>> get() override;
     future<> close() override;
