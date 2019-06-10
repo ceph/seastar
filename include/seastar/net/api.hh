@@ -129,6 +129,22 @@ public:
     void close();
 };
 
+class input_buffer_factory {
+public:
+  using buffer_t = temporary_buffer<char>;
+
+  virtual ~input_buffer_factory() = default;
+  /// Provide a rx buffer. Implementation is responsible for determining its size
+  /// and memory. This is useful when a network stack implementation does not put
+  /// extra requirements on these factors. The POSIX stack is the example here.
+  /// \param allocator Memory allocator \c connected_socket implementation prefers.
+  /// Maybe nullptr.
+  virtual buffer_t create(compat::polymorphic_allocator<char>* allocator) = 0;
+
+  // Give back to the factory unused part of a buffer obtained from it
+  virtual void return_unused(buffer_t&& buf) = 0;
+};
+
 } /* namespace net */
 
 /// \addtogroup networking-module
@@ -156,7 +172,10 @@ public:
     /// Gets the input stream.
     ///
     /// Gets an object returning data sent from the remote endpoint.
-    input_stream<char> input();
+    /// \param ibf_hint optional factory of rx buffers. The decision
+    /// whether to use the factory is opt to an implementation of \c
+    /// connected_socket.
+    input_stream<char> input(net::input_buffer_factory* ibf_hint = nullptr);
     /// Gets the output stream.
     ///
     /// Gets an object that sends data to the remote endpoint.

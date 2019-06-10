@@ -32,7 +32,7 @@ namespace net {
 class connected_socket_impl {
 public:
     virtual ~connected_socket_impl() {}
-    virtual data_source source() = 0;
+    virtual data_source source(input_buffer_factory* ibf = nullptr) = 0;
     virtual data_sink sink() = 0;
     virtual void shutdown_input() = 0;
     virtual void shutdown_output() = 0;

@@ -86,7 +86,7 @@ class native_connected_socket_impl : public connected_socket_impl {
 public:
     explicit native_connected_socket_impl(lw_shared_ptr<typename Protocol::connection> conn)
         : _conn(std::move(conn)) {}
-    virtual data_source source() override;
+    virtual data_source source(net::input_buffer_factory*) override;
     virtual data_sink sink() override;
     virtual void shutdown_input() override;
     virtual void shutdown_output() override;
@@ -180,7 +180,7 @@ public:
 };
 
 template <typename Protocol>
-data_source native_connected_socket_impl<Protocol>::source() {
+data_source native_connected_socket_impl<Protocol>::source(net::input_buffer_factory*) {
     return data_source(std::make_unique<native_data_source_impl>(_conn));
 }
 
