@@ -48,6 +48,18 @@ class data_source_impl {
 public:
     virtual ~data_source_impl() {}
     virtual future<temporary_buffer<char>> get() = 0;
+    virtual future<size_t, temporary_buffer<char>> get_direct(char* buf, size_t size) {
+        // the default implementation:
+        // need to override if the concrete data_source_impl
+        // can work with user provided buffer pointer with less copy.
+        return get().then([buf, size] (auto read_buf) mutable {
+            auto len_needs_copy = std::min(read_buf.size(), size);
+            std::copy(read_buf.get(), read_buf.get() + len_needs_copy, buf);
+            read_buf.trim_front(len_needs_copy);
+            return make_ready_future<size_t, temporary_buffer<char>>(
+                len_needs_copy, std::move(read_buf));
+        });
+    }
     virtual future<temporary_buffer<char>> skip(uint64_t n);
     virtual future<> close() { return make_ready_future<>(); }
 };
@@ -62,6 +74,10 @@ public:
     data_source(data_source&& x) = default;
     data_source& operator=(data_source&& x) = default;
     future<temporary_buffer<char>> get() { return _dsi->get(); }
+    // fill the buf directly within the size boundary.
+    // return the number of bytes actually read, and if the direct buf is fulfilled,
+    // also return the prefetched buffer.
+    future<size_t, temporary_buffer<char>> get_direct(char* buf, size_t size) { return _dsi->get_direct(buf, size); }
     future<temporary_buffer<char>> skip(uint64_t n) { return _dsi->skip(n); }
     future<> close() { return _dsi->close(); }
 };
@@ -214,6 +230,8 @@ public:
     input_stream(input_stream&&) = default;
     input_stream& operator=(input_stream&&) = default;
     future<temporary_buffer<CharType>> read_exactly(size_t n);
+    static constexpr uint16_t DEFAULT_ALIGNMENT = alignof(char);
+    future<temporary_buffer<CharType>> read_exactly2(size_t n, uint16_t alignment = DEFAULT_ALIGNMENT);
     template <typename Consumer>
     GCC6_CONCEPT(requires InputStreamConsumer<Consumer, CharType> || ObsoleteInputStreamConsumer<Consumer, CharType>)
     future<> consume(Consumer&& c);
@@ -256,6 +274,7 @@ public:
     data_source detach() &&;
 private:
     future<temporary_buffer<CharType>> read_exactly_part(size_t n, tmp_buf buf, size_t completed);
+    future<temporary_buffer<CharType>> read_exactly_part_direct(size_t n, tmp_buf buf, size_t completed);
 };
 
 // Facilitates data buffering before it's handed over to data_sink.

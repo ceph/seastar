@@ -193,6 +193,61 @@ input_stream<CharType>::read_exactly(size_t n) {
 }
 
 template <typename CharType>
+future<temporary_buffer<CharType>>
+input_stream<CharType>::read_exactly_part_direct(size_t n, tmp_buf out, size_t completed) {
+    if (completed == n) {
+        return make_ready_future<tmp_buf>(std::move(out));
+    }
+    assert(!available() && "Still available buffer left");
+
+    return _fd.get_direct(out.get_write() + completed, n - completed)
+    .then([this, n, out = std::move(out), completed] (size_t size, tmp_buf prefetch_buf) mutable {
+        if (size == 0) {
+            assert(prefetch_buf.empty() && "EOF should not prefetch");
+            _eof = true;
+            return make_ready_future<tmp_buf>();
+        } else {
+            auto read_offset = completed + size;
+            if (bool(prefetch_buf)) {
+                // with prefetch
+                assert(read_offset == n && "Prefetch should only happen with a complete read");
+                _buf = std::move(prefetch_buf);
+                return make_ready_future<tmp_buf>(std::move(out));
+            } else {
+                // no prefetch, and buffer maybe too small
+                return this->read_exactly_part_direct(n, std::move(out), read_offset);
+            }
+        }
+    });
+}
+
+template <typename CharType>
+future<temporary_buffer<CharType>>
+input_stream<CharType>::read_exactly2(size_t n, uint16_t alignment) {
+    if (_buf.size() &&
+        (alignment == DEFAULT_ALIGNMENT /*||
+         reinterpret_cast<uint64_t>(_buf.begin()) & (alignment - 1) == 0)*/)) {
+        // alignment suffices
+        if (_buf.size() == n) {
+            // easy case: steal buffer, return to caller
+            return make_ready_future<tmp_buf>(std::move(_buf));
+        } else if (_buf.size() > n) {
+            // buffer large enough, share it with caller
+            auto front = _buf.share(0, n);
+            _buf.trim_front(n);
+            return make_ready_future<tmp_buf>(std::move(front));
+        }
+        // buffer not large enough, we need to create one
+    }
+    // no chance to reuse the memory space of the prefetched buffer
+    auto out = tmp_buf::aligned(alignment, n);
+    auto len_needs_copy = std::min(available(), n);
+    std::copy(_buf.get(), _buf.get() + len_needs_copy, out.get_write());
+    _buf.trim_front(len_needs_copy);
+    return read_exactly_part_direct(n, std::move(out), len_needs_copy);
+}
+
+template <typename CharType>
 template <typename Consumer>
 GCC6_CONCEPT(requires InputStreamConsumer<Consumer, CharType> || ObsoleteInputStreamConsumer<Consumer, CharType>)
 future<>
