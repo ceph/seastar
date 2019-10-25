@@ -886,9 +886,6 @@ private:
 
     [[gnu::always_inline]]
     future_state<T...> get_available_state() noexcept {
-        if (_promise) {
-            detach_promise();
-        }
         return std::move(_state);
     }
 
@@ -1384,6 +1381,13 @@ void internal::promise_base::make_ready() noexcept {
         } else {
             ::seastar::schedule(std::move(_task));
         }
+#ifdef SEASTAR_COROUTINES_TS
+    }
+#else
+    } else
+#endif
+    if (_future) {
+      _future->detach_promise();
     }
 }
 
