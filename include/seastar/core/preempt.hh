@@ -34,12 +34,14 @@ struct preemption_monitor {
     std::atomic<uint32_t> tail;
 };
 
-}
+} // namespace internal
 
 extern __thread const internal::preemption_monitor* g_need_preempt;
 
-inline bool need_preempt() {
+namespace internal {
+
 #ifndef SEASTAR_DEBUG
+inline bool _need_preempt() {
     // prevent compiler from eliminating loads in a loop
     std::atomic_signal_fence(std::memory_order_seq_cst);
     auto np = g_need_preempt;
@@ -50,9 +52,15 @@ inline bool need_preempt() {
     // Possible optimization: read head and tail in a single 64-bit load,
     // and find a funky way to compare the two 32-bit halves.
     return __builtin_expect(head != tail, false);
-#else
-    return true;
-#endif
 }
+#endif // not SEASTAR_DEBUG
 
-}
+} // namespace internal
+
+} // namespace seastar
+
+#ifndef SEASTAR_DEBUG
+#define need_preempt() __builtin_expect(::seastar::internal::_need_preempt(), false)
+#else
+#define need_preempt() true
+#endif // not SEASTAR_DEBUG
