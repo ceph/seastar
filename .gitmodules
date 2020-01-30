@@ -1,6 +1,6 @@
 [submodule "dpdk"]
 	path = dpdk
-	url = ../dpdk
+	url = https://github.com/ceph/dpdk
 [submodule "fmt"]
 	path = fmt
 	url = ../fmt
