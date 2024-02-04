@@ -1698,10 +1698,12 @@ public:
     /// successful value; Because handle_exception() is used here on a
     /// future<>, the handler function does not need to return anything.
     template <typename Func>
+    /* Broken?
     requires std::is_invocable_r_v<future<T> ,Func, std::exception_ptr>
                     || (std::tuple_size_v<tuple_type> == 0 && std::is_invocable_r_v<void, Func, std::exception_ptr>)
                     || (std::tuple_size_v<tuple_type> == 1 && std::is_invocable_r_v<T, Func, std::exception_ptr>)
                     || (std::tuple_size_v<tuple_type> > 1 && std::is_invocable_r_v<tuple_type ,Func, std::exception_ptr>)
+    */
     future<T> handle_exception(Func&& func) noexcept {
         return then_wrapped([func = std::forward<Func>(func)]
                              (auto&& fut) mutable -> future<T> {
