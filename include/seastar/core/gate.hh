@@ -34,7 +34,8 @@
 #endif
 
 #ifdef SEASTAR_DEBUG
-#define SEASTAR_GATE_HOLDER_DEBUG
+// See: https://tracker.ceph.com/issues/64332
+// #define SEASTAR_GATE_HOLDER_DEBUG
 #endif
 
 namespace seastar {
