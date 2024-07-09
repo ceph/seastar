@@ -435,7 +435,7 @@ namespace rpc {
           if (!size) {
               return make_ready_future<typename FrameType::return_type>(FrameType::make_value(h, rcv_buf()));
           } else {
-              return read_rcv_buf(in, size).then([this, info, h = std::move(h), size] (rcv_buf rb) {
+              return read_rcv_buf(in, size).then([this, info, h = std::move(h), size=size] (rcv_buf rb) {
                   if (rb.size != size) {
                       _logger(info, format("unexpected eof on a {} while reading data: expected {:d} got {:d}", FrameType::role(), size, rb.size));
                       return make_ready_future<typename FrameType::return_type>(FrameType::empty_value());
