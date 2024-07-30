@@ -34,8 +34,7 @@
 #endif
 
 #ifdef SEASTAR_DEBUG
-// See: https://tracker.ceph.com/issues/64332
-// #define SEASTAR_GATE_HOLDER_DEBUG
+#define SEASTAR_GATE_HOLDER_DEBUG
 #endif
 
 namespace seastar {
@@ -62,6 +61,7 @@ SEASTAR_MODULE_EXPORT
 class gate {
     size_t _count = 0;
     std::optional<promise<>> _stopped;
+    std::mutex _lock_gate;
 
 #ifdef SEASTAR_GATE_HOLDER_DEBUG
     void assert_not_held_when_moved() const noexcept;
@@ -89,6 +89,7 @@ public:
         return *this;
     }
     ~gate() {
+        std::lock_guard lock(_lock_gate);
         assert(!_count && "gate destroyed with outstanding requests");
         assert_not_held_when_destroyed();
     }
@@ -171,18 +172,22 @@ public:
     /// Moving the \ref gate::holder is supported and has no effect on the \c gate itself.
     class holder {
         gate* _g;
+
 #ifdef SEASTAR_GATE_HOLDER_DEBUG
         using member_hook_t = boost::intrusive::list_member_hook<boost::intrusive::link_mode<boost::intrusive::auto_unlink>>;
         member_hook_t _link;
 
         void debug_hold_gate() noexcept {
             if (_g) {
+                std::lock_guard lock_gate(_g->_lock_gate);
                 _g->_holders.push_back(*this);
             }
         }
 
         void debug_release_gate() noexcept {
-            _link.unlink();
+            if (_link.is_linked()) {
+                _link.unlink();
+            }
         }
 #else   // SEASTAR_GATE_HOLDER_DEBUG
         void debug_hold_gate() noexcept {}
@@ -194,6 +199,7 @@ public:
         gate* release_gate() noexcept {
             auto* g = std::exchange(_g, nullptr);
             if (g) {
+                std::lock_guard lock_holder(g->_lock_gate);
                 debug_release_gate();
             }
             return g;
