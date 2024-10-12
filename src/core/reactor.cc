@@ -1077,14 +1077,18 @@ cpu_stall_detector_posix_timer::cpu_stall_detector_posix_timer(cpu_stall_detecto
     sev.sigev_notify = SIGEV_THREAD_ID;
     sev.sigev_signo = signal_number();
     sev._sigev_un._tid = syscall(SYS_gettid);
+#if !defined(SEASTAR_DEBUG) || !defined( __aarch64__)
     int err = timer_create(CLOCK_THREAD_CPUTIME_ID, &sev, &_timer);
     if (err) {
         throw std::system_error(std::error_code(err, std::system_category()));
     }
+#endif
 }
 
 cpu_stall_detector_posix_timer::~cpu_stall_detector_posix_timer() {
+#if !defined(SEASTAR_DEBUG) || !defined( __aarch64__)
     timer_delete(_timer);
+#endif
 }
 
 cpu_stall_detector_config
@@ -1157,7 +1161,9 @@ cpu_stall_detector::reset_suppression_state(sched_clock::time_point now) {
 
 void cpu_stall_detector_posix_timer::arm_timer() {
     auto its = posix::to_relative_itimerspec(_threshold * _report_at + _slack, 0s);
+#if !defined(SEASTAR_DEBUG) || !defined( __aarch64__)
     timer_settime(_timer, 0, &its, nullptr);
+#endif
 }
 
 void cpu_stall_detector::start_task_run(sched_clock::time_point now) {
@@ -1179,7 +1185,9 @@ void cpu_stall_detector::end_task_run(sched_clock::time_point now) {
 
 void cpu_stall_detector_posix_timer::start_sleep() {
     auto its = posix::to_relative_itimerspec(0s,  0s);
+#if !defined(SEASTAR_DEBUG) || !defined( __aarch64__)
     timer_settime(_timer, 0, &its, nullptr);
+#endif
     _rearm_timer_at = reactor::now();
 }
 
@@ -1215,6 +1223,7 @@ cpu_stall_detector_linux_perf_event::arm_timer() {
     // clear out any existing records in the ring buffer, so when we get interrupted next time
     // we have only the stack associated with that interrupt, and so we don't overflow.
     data_area_reader(*this).skip_all();
+#if !defined(SEASTAR_DEBUG) || !defined( __aarch64__)
     if (__builtin_expect(_enabled && _current_period == ns, 1)) {
         // Common case - we're re-arming with the same period, the counter
         // is already enabled.
@@ -1239,11 +1248,14 @@ cpu_stall_detector_linux_perf_event::arm_timer() {
         _enabled = true;
         _current_period = ns;
     }
+#endif
 }
 
 void
 cpu_stall_detector_linux_perf_event::start_sleep() {
+#if !defined(SEASTAR_DEBUG) || !defined( __aarch64__)
     _fd.ioctl(PERF_EVENT_IOC_DISABLE, 0);
+#endif
     _enabled = false;
 }
 
@@ -3105,11 +3117,13 @@ int reactor::do_run() {
     _task_quota_timer.timerfd_settime(0, its);
     auto& task_quote_itimerspec = its;
 
+#if !defined(SEASTAR_DEBUG) || !defined(__aarch64__)
     struct sigaction sa_block_notifier = {};
     sa_block_notifier.sa_handler = &reactor::block_notifier;
     sa_block_notifier.sa_flags = SA_RESTART;
     auto r = sigaction(internal::cpu_stall_detector::signal_number(), &sa_block_notifier, nullptr);
     assert(r == 0);
+#endif
 
     bool idle = false;
 
