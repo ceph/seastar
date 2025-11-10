@@ -27,6 +27,7 @@
 #include <memory>
 #include <type_traits>
 #include <utility>
+#include <optional>
 #include <seastar/core/future.hh>
 #include <seastar/util/assert.hh>
 
