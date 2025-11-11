@@ -1944,19 +1944,6 @@ public:
     }
 
     struct session_ref;
-
-    future<sstring> get_cipher_suite() {
-        return state_checked_access([this] {
-            return sstring(gnutls_ciphersuite_get(*this));
-        });
-    }
-
-    future<sstring> get_protocol_version() {
-        return state_checked_access([this]() {
-            return sstring(gnutls_protocol_get_name(gnutls_protocol_get_version(*this)));
-        });
-    }
-
 private:
 
     using x509_ctr_ptr = std::unique_ptr<gnutls_x509_crt_int, void (*)(gnutls_x509_crt_t)>;
@@ -2102,12 +2089,6 @@ public:
     }
     future<std::optional<sstring>> get_selected_alpn_protocol() {
         return _session->get_selected_alpn_protocol();
-    }
-    future<sstring> get_cipher_suite() const {
-        return _session->get_cipher_suite();
-    }
-    future<sstring> get_protocol_version() const {
-        return _session->get_protocol_version();
     }
     future<> force_rehandshake() {
         return _session->force_rehandshake();
@@ -2317,13 +2298,6 @@ future<std::optional<sstring>> tls::get_selected_alpn_protocol(connected_socket&
     return get_tls_socket(socket)->get_selected_alpn_protocol();
 }
 
-future<sstring> tls::get_cipher_suite(connected_socket& socket) {
-    return get_tls_socket(socket)->get_cipher_suite();
-}
-
-future<sstring> tls::get_protocol_version(connected_socket& socket) {
-    return get_tls_socket(socket)->get_protocol_version();
-}
 future<> tls::force_rehandshake(connected_socket& socket) {
     auto s = get_tls_socket(socket);
     if (!s) {
@@ -2331,7 +2305,6 @@ future<> tls::force_rehandshake(connected_socket& socket) {
     }
     return s->force_rehandshake();
 }
-
 
 std::string_view tls::format_as(subject_alt_name_type type) {
     switch (type) {
