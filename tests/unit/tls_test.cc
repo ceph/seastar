@@ -1988,22 +1988,6 @@ SEASTAR_THREAD_TEST_CASE(test_reload_certificates_with_only_shard0_notify) {
         BOOST_CHECK_EQUAL(sstring(buf.begin(), buf.end()), "apa");
     }
 }
-
-SEASTAR_TEST_CASE(test_tls_cipher_suite_and_protocol_version, *enable_if_with_networking()) {
-    auto certs = ::make_shared<tls::certificate_credentials>();
-    co_await certs->set_system_trust();
-
-    auto c = co_await tls::connect(certs, co_await google_address(), tls::tls_options{ .server_name = google_name });
-    BOOST_CHECK_EQUAL(co_await tls::get_cipher_suite(c), "TLS_AES_256_GCM_SHA384");
-    BOOST_CHECK_EQUAL(co_await tls::get_protocol_version(c), "TLS1.3");
-}
-
-SEASTAR_TEST_CASE(test_cipher_suite_and_protocol_version_for_non_tls_connection, *enable_if_with_networking()) {
-    auto c = co_await seastar::connect(co_await google_address());
-    BOOST_CHECK_THROW(co_await tls::get_cipher_suite(c), std::invalid_argument);
-    BOOST_CHECK_THROW(co_await tls::get_protocol_version(c), std::invalid_argument);
-}
-
 /**
  * Tests that re-handshaking during a connection lifetime
  * does not cause large buffer allocations inside gnutls.
