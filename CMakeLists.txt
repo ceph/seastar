@@ -1018,7 +1018,12 @@ if (Seastar_HWLOC)
     PRIVATE hwloc::hwloc)
 endif ()
 
-set_option_if_package_is_found (Seastar_IO_URING LibUring)
+if (TARGET URING::uring)
+  message(STATUS "Using imported liburing for seastar")
+else()
+  set_option_if_package_is_found (Seastar_IO_URING LibUring)
+endif()
+
 if (Seastar_IO_URING)
   list (APPEND Seastar_PRIVATE_COMPILE_DEFINITIONS SEASTAR_HAVE_URING)
   target_link_libraries (seastar
